@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Algorithm Visualizer
 
 This template should help get you started developing with Vue 3 in Vite.
@@ -31,4 +30,3 @@ npm run build
 =======
 # Algorithm-Visualizer
 A repository which contains a project for algorithms visualizing
->>>>>>> 899a9b5d70d57fc5ecf057d85a6d5efe663abde0
