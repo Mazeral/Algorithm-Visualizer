@@ -1,6 +1,5 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+import SortingAlgorithms from "./components/SortingAlgorithms.vue"
 </script>
 
 <template>
@@ -8,6 +7,7 @@ import TheWelcome from './components/TheWelcome.vue'
   </header>
 
   <main>
+	  <SortingAlgorithms/>
   </main>
 </template>
 
