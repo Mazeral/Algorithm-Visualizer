@@ -50,6 +50,8 @@ const animationSpeed = ref(50); // ms
 const shouldStop = ref(false);
 const stopSorting = () => {
   shouldStop.value = true;
+  sortedIndices.value = []; // Clear any sorted indices
+  comparingIndices.value = []; // Clear comparing indices
 };
 
 // Create a wrapper function for all sorting algorithms
@@ -176,35 +178,33 @@ const selectionSort = async () => {
 const mergeSort = async () => {
   isSorting.value = true;
   const arr = [...array.value];
-	if (shouldStop.value) return;
-  await mergeSortHelper(arr, 0, arr.length - 1);
-  isSorting.value = false;
-  
-  // Mark all as sorted when done
-  sortedIndices.value = Array.from({ length: array.value.length }, (_, i) => i);
-
+  try {
+    await mergeSortHelper(arr, 0, arr.length - 1);
+    // Only mark complete if not stopped
+    if (!shouldStop.value) {
+      sortedIndices.value = Array.from({ length: array.value.length }, (_, i) => i);
+    }
+  } finally {
+    isSorting.value = false;
+  }
   return true;
 };
 
 const mergeSortHelper = async (arr, left, right) => {
-
-  if (left < right) {
-    const middle = Math.floor((left + right) / 2);
-    
-    // Visualize the current split
-    comparingIndices.value = [left, right];
-    await sleep(animationSpeed.value);
-    
-    // Recursively sort both halves
-	if (shouldStop.value) return;
-    await mergeSortHelper(arr, left, middle);
-	if (shouldStop.value) return;
-    await mergeSortHelper(arr, middle + 1, right);
-    
-	if (shouldStop.value) return;
-    // Merge the sorted halves
-    await merge(arr, left, middle, right);
-  }
+  if (left >= right || shouldStop.value) return;
+  
+  const middle = Math.floor((left + right) / 2);
+  
+  comparingIndices.value = [left, right];
+  await sleep(animationSpeed.value);
+  
+  await mergeSortHelper(arr, left, middle);
+  if (shouldStop.value) return;
+  
+  await mergeSortHelper(arr, middle + 1, right);
+  if (shouldStop.value) return;
+  
+  await merge(arr, left, middle, right);
 };
 
 const merge = async (arr, left, middle, right) => {
@@ -275,19 +275,24 @@ const quickSort = async () => {
   isSorting.value = true;
   sortedIndices.value = [];
   const arr = [...array.value];
-  await quickSortHelper(arr, 0, arr.length - 1);
-  isSorting.value = false;
-  
-  // Mark all as sorted when done
-  sortedIndices.value = Array.from({ length: array.value.length }, (_, i) => i);
-
+  try {
+    await quickSortHelper(arr, 0, arr.length - 1);
+    if (!shouldStop.value) {
+      sortedIndices.value = Array.from({ length: array.value.length }, (_, i) => i);
+    }
+  } finally {
+    isSorting.value = false;
+  }
   return true;
 };
 
 const quickSortHelper = async (arr, low, high) => {
   if (low < high) {
     // Visualize the current partition range
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
     comparingIndices.value = [low, high];
     await sleep(animationSpeed.value);
     
@@ -298,14 +303,23 @@ const quickSortHelper = async (arr, low, high) => {
     sortedIndices.value.push(pi);
     
     // Recursively sort elements before and after partition
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
     await quickSortHelper(arr, low, pi - 1);
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
     await quickSortHelper(arr, pi + 1, high);
   }
   
   // Mark single elements as sorted
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
   if (low === high) {
     sortedIndices.value.push(low);
   }
@@ -317,14 +331,20 @@ const partition = async (arr, low, high) => {
   
   // Highlight the pivot
   comparingIndices.value = [high];
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
   await sleep(animationSpeed.value);
   
   // Index of smaller element
   let i = low - 1;
   
 
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
   for (let j = low; j < high; j++) {
     // Highlight elements being compared
     comparingIndices.value = [j, high];
@@ -338,7 +358,10 @@ const partition = async (arr, low, high) => {
       [arr[i], arr[j]] = [arr[j], arr[i]];
       array.value = [...arr];
 
-	if (shouldStop.value) return;
+	if (shouldStop.value) {
+		sortedIndices.value = [];
+		return
+	};
       await sleep(animationSpeed.value);
     }
   }
