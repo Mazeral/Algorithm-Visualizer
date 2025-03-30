@@ -114,6 +114,9 @@ const startSorting = async () => {
     case 'quickSort':
       await runSortingAlgorithm(quickSort);
       break;
+    case 'insertionSort':
+      await runSortingAlgorithm(insertionSort);
+      break;
     default:
       await runSortingAlgorithm(bubbleSort);
   }
@@ -172,6 +175,45 @@ const selectionSort = async () => {
   }
   sortedIndices.value.push(n - 1); // Last element is sorted
 
+  return true;
+};
+
+const insertionSort = async () => {
+  const arr = [...array.value];
+  const n = arr.length;
+  
+  for (let i = 1; i < n; i++) {
+    if (shouldStop.value) return false;
+    
+    let key = arr[i];
+    let j = i - 1;
+    
+    // Highlight the elements being compared
+    comparingIndices.value = [i, j];
+    await sleep(animationSpeed.value);
+    
+    // Move elements greater than key to one position ahead
+    while (j >= 0 && arr[j] > key) {
+      if (shouldStop.value) return false;
+      
+      arr[j + 1] = arr[j];
+      array.value = [...arr]; // Update visualization
+      comparingIndices.value = [j + 1, j];
+      await sleep(animationSpeed.value);
+      
+      j = j - 1;
+    }
+    
+    arr[j + 1] = key;
+    array.value = [...arr]; // Final position of key
+    await sleep(animationSpeed.value);
+    
+    // Mark the current position as partially sorted
+    sortedIndices.value.push(i);
+  }
+  
+  // Mark all as sorted when done
+  sortedIndices.value = Array.from({ length: n }, (_, i) => i);
   return true;
 };
 
