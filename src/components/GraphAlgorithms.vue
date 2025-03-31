@@ -653,9 +653,7 @@ onMounted(() => {
           :disabled="isRunning || selectingStart"
           :class="{ selecting: selectingStart }"
         >
-          {{
-            startNode !== null ? `Start: ${startNode}` : "Select Start Node"
-          }}
+          {{ startNode !== null ? `Start: ${startNode}` : "Select Start Node" }}
           {{ selectingStart ? "..." : "" }}
         </button>
         <button

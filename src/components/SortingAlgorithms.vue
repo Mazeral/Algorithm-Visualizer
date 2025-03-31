@@ -84,7 +84,7 @@ const resetArray = () => {
   // Generate random array
   const minVal = 5;
   const maxVal = 500;
-  const arraySize = Math.floor(window.innerWidth / 10); // Adjust based on screen width
+  const arraySize = Math.floor(window.innerWidth / 20); // Adjust based on screen width
 
   array.value = Array.from(
     { length: arraySize },
@@ -273,6 +273,8 @@ const merge = async (arr, left, middle, right) => {
     j = 0,
     k = left;
 
+  const updates = []; // Store updates for batch processing
+
   while (i < n1 && j < n2) {
     // Highlight the elements being compared
     comparingIndices.value = [left + i, middle + 1 + j];
@@ -286,17 +288,15 @@ const merge = async (arr, left, middle, right) => {
       j++;
     }
 
-    // Update visualization
-    array.value = [...arr];
-    await sleep(animationSpeed.value);
+    // Store update for batch processing
+    updates.push([...arr]);
     k++;
   }
 
   // Copy remaining elements of L[]
   while (i < n1) {
     arr[k] = L[i];
-    array.value = [...arr];
-    await sleep(animationSpeed.value);
+    updates.push([...arr]);
     i++;
     k++;
   }
@@ -304,10 +304,15 @@ const merge = async (arr, left, middle, right) => {
   // Copy remaining elements of R[]
   while (j < n2) {
     arr[k] = R[j];
-    array.value = [...arr];
-    await sleep(animationSpeed.value);
+    updates.push([...arr]);
     j++;
     k++;
+  }
+
+  // Batch update visualization
+  for (const updatedArr of updates) {
+    array.value = updatedArr;
+    await sleep(animationSpeed.value);
   }
 
   // Mark this section as being processed
