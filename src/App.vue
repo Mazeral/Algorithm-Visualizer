@@ -41,26 +41,45 @@ const selectedComponent = ref(null);
 </template>
 
 <style scoped>
+main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
 .flex-container {
   display: flex;
   flex-direction: row;
   width: 100%;
-  overflow: hidden;
+  flex-grow: 1; /* Make flex-container take up remaining vertical space */
+  align-items: stretch;
 }
+
 .flex-item {
-  flex-grow: 1; /* Initially, all items share space equally */
-  transition: flex-grow 0.3s ease; /* Smooth transition */
+  display:flex;
+  flex-grow: 1;
+  transition: flex-grow 0.3s ease;
   padding: 20px;
   text-align: center;
   background-color: #f0f0f0;
   border: 1px solid #ccc;
   cursor: pointer;
+  justify-content: center;
+  align-items: center;
+  text-align:center;
 }
+
 .flex-item:hover {
   flex-grow: 3;
 }
+
 .flex-item.active {
   background-color: #e0e0e0;
   font-weight: bold;
+}
+
+SortingAlgorithms, GraphAlgorithms, SearchAlgorithms {
+  width: 100%;
 }
 </style>
