@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from "vue"; // Added nextTick
 
-const viewBox = ref("0 0 1200 600"); // Define SVG coordinate system
+const viewBox = ref("0 0 1050 550"); // Define SVG coordinate system
 
 const treeDepth = ref(3);
 const nodes = reactive([]);
