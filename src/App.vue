@@ -1,15 +1,15 @@
 <script setup>
-import SortingAlgorithms from "./components/SortingAlgorithms.vue"
+import SortingAlgorithms from "./components/SortingAlgorithms.vue";
+import GraphAlgorithms from "./components/GraphAlgorithms.vue";
 </script>
 
 <template>
-  <header>
-  </header>
+  <header></header>
 
   <main>
-	  <SortingAlgorithms/>
+    <SortingAlgorithms />
+    <GraphAlgorithms />
   </main>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

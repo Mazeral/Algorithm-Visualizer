@@ -27,6 +27,9 @@ npm run dev
 ```sh
 npm run build
 ```
+
 =======
+
 # Algorithm-Visualizer
+
 A repository which contains a project for algorithms visualizing
