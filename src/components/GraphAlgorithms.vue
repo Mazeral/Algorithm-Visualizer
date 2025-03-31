@@ -1,48 +1,157 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from "vue"; // Added watch
+
 const containerWidth = ref(1200);
 const containerHeight = ref(600);
-const treeDepth = ref(3);
+const treeDepth = ref(3); // Keep for tree algorithms
 const nodes = reactive([]);
 const edges = reactive([]);
 const isRunning = ref(false);
-const selectedAlgorithm = ref('BFS');
-const startNode = ref(null);
-const endNode = ref(null);
+const selectedAlgorithm = ref("BFS");
+const startNode = ref(null); // ID of the start node
+const endNode = ref(null); // ID of the end node
 const selectingStart = ref(false);
 const selectingEnd = ref(false);
 
-const algorithmInfo = computed(() => {
-  const info = {
-    'BFS': 'Time Complexity: O(n) - Explores level by level',
-    'DFS': 'Time Complexity: O(n) - Explores depth first',
-    'In-Order': 'Time Complexity: O(n) - Left, Root, Right',
-    'Pre-Order': 'Time Complexity: O(n) - Root, Left, Right',
-    'Post-Order': 'Time Complexity: O(n) - Left, Right, Root',
-    'Dijkstra': 'Finds shortest path between two nodes (weighted graph)',
-    'Prim': 'Finds Minimum Spanning Tree (greedy, starts from root)',
-    'Kruskal': 'Finds Minimum Spanning Tree (uses union-find)'
-  };
-  return info[selectedAlgorithm.value];
+// Define which algorithms operate on graphs
+const graphAlgorithms = ["Dijkstra", "BFS", "DFS", "Prim", "Kruskal"]; // Added Prim/Kruskal
+const treeAlgorithms = ["In-Order", "Pre-Order", "Post-Order"];
+
+// --- Computed Properties ---
+
+// Determines if the selected algorithm is graph-based
+const isGraphAlgorithm = computed(() =>
+  graphAlgorithms.includes(selectedAlgorithm.value),
+);
+
+// Determines if the selected algorithm requires a start node
+const needsStartNode = computed(() =>
+  ["BFS", "DFS", "Dijkstra", "Prim"].includes(selectedAlgorithm.value), // Prim often starts at a node
+);
+
+// Determines if the selected algorithm requires an end node
+const needsEndNode = computed(() =>
+  ["Dijkstra"].includes(selectedAlgorithm.value),
+);
+
+// --- Configuration ---
+
+const graphConfig = reactive({
+  nodeCount: 10,
+  edgeProbability: 0.3,
 });
+
+// --- Initialization and Reset ---
+
+// Watch for algorithm changes to reset the visualization
+watch(selectedAlgorithm, () => {
+  resetVisualization(); // Reset when algorithm type changes
+});
+
+// Watch for config changes to reset the graph/tree
+watch(graphConfig, () => {
+  if (isGraphAlgorithm.value) {
+    resetVisualization();
+  }
+}, { deep: true });
+
+watch(treeDepth, () => {
+  if (!isGraphAlgorithm.value) {
+    resetVisualization();
+  }
+});
+
+
+// Resets node/edge visual states (visited, current, path) and selections
+function clearVisualState() {
+  nodes.forEach((node) => {
+    node.visited = false;
+    node.current = false;
+    // Keep start/end node visual indication if they are selected
+  });
+  edges.forEach((edge) => {
+    edge.visited = false;
+    edge.inPath = false;
+  });
+  isRunning.value = false; // Ensure running state is reset
+}
+
+// Resets the entire visualization (structure and state)
+function resetVisualization() {
+  clearVisualState(); // Clear highlights and running state first
+  startNode.value = null;
+  endNode.value = null;
+  selectingStart.value = false;
+  selectingEnd.value = false;
+
+  if (isGraphAlgorithm.value) {
+    initializeGraph();
+  } else {
+    calculateTreeLayout();
+  }
+}
+
+
+function initializeGraph() {
+  nodes.splice(0); // Clear existing nodes
+  edges.splice(0); // Clear existing edges
+
+  // Create nodes with random positions
+  for (let i = 0; i < graphConfig.nodeCount; i++) {
+    nodes.push({
+      id: i,
+      value: i, // Use ID as value for simplicity, or keep random
+      x: Math.random() * (containerWidth.value - 40) + 20, // Add padding
+      y: Math.random() * (containerHeight.value - 40) + 20, // Add padding
+      visited: false,
+      current: false,
+    });
+  }
+
+  // Create random edges (ensure graph is likely connected for smaller node counts)
+  const createdEdges = new Set();
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (Math.random() < graphConfig.edgeProbability) {
+        const weight = Math.floor(Math.random() * 9 + 1);
+        const edgeKey1 = `${i}-${j}`;
+        const edgeKey2 = `${j}-${i}`;
+
+        if (!createdEdges.has(edgeKey1)) {
+           // Add bidirectional edges
+          edges.push({ from: i, to: j, weight, visited: false, inPath: false });
+          edges.push({ from: j, to: i, weight, visited: false, inPath: false }); // Add reverse for lookups if needed by algos
+          createdEdges.add(edgeKey1);
+          createdEdges.add(edgeKey2);
+        }
+      }
+    }
+  }
+
+  // Optional: Add logic to ensure graph connectivity if needed,
+  // e.g., by ensuring node 0 connects to node 1, 1 to 2 etc., then add random edges.
+}
 
 function calculateTreeLayout() {
   nodes.splice(0);
   edges.splice(0);
 
   const maxDepth = treeDepth.value;
-  const nodePositions = [];
-  const horizontalSpacing = containerWidth.value / (Math.pow(2, maxDepth - 1) + 1);
+  //const horizontalSpacing = containerWidth.value / (Math.pow(2, maxDepth - 1) + 1); // Can simplify positioning
   const verticalSpacing = containerHeight.value / (maxDepth + 1);
 
-  // Create nodes with positions
   let nodeId = 0;
   for (let depth = 0; depth < maxDepth; depth++) {
     const levelNodes = Math.pow(2, depth);
     const yPosition = (depth + 1) * verticalSpacing;
 
     for (let i = 0; i < levelNodes; i++) {
-      const xPosition = (i + 1) * (containerWidth.value / (levelNodes + 1));
+      // Calculate x based on position within the level
+      const levelWidth = containerWidth.value * 0.8; // Use 80% of width
+      const startX = containerWidth.value * 0.1;
+      const xSpacing = levelWidth / (levelNodes + 1);
+      const xPosition = startX + (i + 1) * xSpacing;
+
       nodes.push({
         id: nodeId++,
         value: Math.floor(Math.random() * 100),
@@ -51,574 +160,723 @@ function calculateTreeLayout() {
         visited: false,
         current: false,
         depth: depth,
-        children: []
+        children: [], // Store child IDs
       });
     }
   }
 
   // Create edges (parent-child relationships)
-  for (let i = 0; i < nodes.length; i++) {
-    if (nodes[i].depth >= maxDepth - 1) continue;
+  let currentNodeIndex = 0;
+  for (let depth = 0; depth < maxDepth - 1; depth++) {
+    const levelNodes = Math.pow(2, depth);
+    for (let i = 0; i < levelNodes; i++) {
+        const parentNode = nodes[currentNodeIndex];
+        const leftChildIndex = 2 * currentNodeIndex + 1;
+        const rightChildIndex = 2 * currentNodeIndex + 2;
 
-    const children = [
-      nodes[2 * i + 1],
-      nodes[2 * i + 2]
-    ].filter(child => child);
-
-// In calculateTreeLayout() function, modify edge creation:
-children.forEach(child => {
-  edges.push({
-    from: nodes[i].id,
-    to: child.id,
-    weight: Math.floor(Math.random() * 9 + 1), // Add random weight between 1-10
-    visited: false,
-    inPath: false
-  });
-  nodes[i].children.push(child.id);
-});
+        if (nodes[leftChildIndex]) {
+            const child = nodes[leftChildIndex];
+            edges.push({ from: parentNode.id, to: child.id, weight: Math.floor(Math.random() * 9 + 1), visited: false, inPath: false });
+            parentNode.children.push(child.id);
+        }
+        if (nodes[rightChildIndex]) {
+            const child = nodes[rightChildIndex];
+            edges.push({ from: parentNode.id, to: child.id, weight: Math.floor(Math.random() * 9 + 1), visited: false, inPath: false });
+             parentNode.children.push(child.id);
+        }
+        currentNodeIndex++;
+    }
   }
 }
 
+
+// --- Node Selection ---
+
 function selectStartNode() {
+  if (isRunning.value) return;
   selectingStart.value = true;
   selectingEnd.value = false;
+  // Clear previous selection visually if desired
+  // if (startNode.value !== null) nodes.find(n => n.id === startNode.value).isStart = false;
 }
 
 function selectEndNode() {
+  if (isRunning.value) return;
   selectingEnd.value = true;
   selectingStart.value = false;
+  // Clear previous selection visually if desired
+  // if (endNode.value !== null) nodes.find(n => n.id === endNode.value).isEnd = false;
 }
 
 function handleNodeClick(node) {
+  if (isRunning.value) return;
+
   if (selectingStart.value) {
+    // Deselect previous start node if any
+    if (startNode.value !== null && startNode.value !== node.id) {
+       // Optional: Add specific visual state for selection if needed
+    }
+     if (node.id === endNode.value) endNode.value = null; // Cannot be start and end
     startNode.value = node.id;
     selectingStart.value = false;
   } else if (selectingEnd.value) {
+    // Deselect previous end node if any
+    if (endNode.value !== null && endNode.value !== node.id) {
+       // Optional: Add specific visual state for selection if needed
+    }
+     if (node.id === startNode.value) startNode.value = null; // Cannot be start and end
     endNode.value = node.id;
     selectingEnd.value = false;
   }
 }
 
-function resetTree() {
-  startNode.value = null;
-  endNode.value = null;
-  calculateTreeLayout();
+// --- Algorithms ---
+
+const delayTime = ref(500); // Control animation speed
+
+function delay(ms) {
+  // Adjust delay based on ref value
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Dijkstra's Algorithm implementation
-async function dijkstra() {
-  // Validate node selection
-  if (startNode.value === null || endNode.value === null) {
-    alert('Please select both start and end nodes');
-    isRunning.value = false;
-    return;
-  }
-
-  // Initialize distances and previous nodes
-  const distances = new Map();
-  const previous = new Map();
-  const unvisited = new Set(nodes.map(n => n.id));
-
-  nodes.forEach(node => {
-    distances.set(node.id, Infinity);
-    previous.set(node.id, null);
-  });
-  distances.set(startNode.value, 0);
-
-  while (unvisited.size > 0) {
-    // Find node with smallest distance
-    let currentId = -1;
-    let minDistance = Infinity;
-    unvisited.forEach(id => {
-      if (distances.get(id) < minDistance) {
-        minDistance = distances.get(id);
-        currentId = id;
-      }
-    });
-
-    // If no reachable nodes left, break
-    if (currentId === -1) break;
-
-    const currentNode = nodes.find(n => n.id === currentId);
-
-    // Visualization updates
-    currentNode.current = true;
-    await delay(1000);
-
-    // Check if we've reached the target
-    if (currentId === endNode.value) break;
-
-    // Process neighbors
-    const neighbors = edges.filter(e => e.from === currentId);
-    for (const edge of neighbors) {
-      const alt = distances.get(currentId) + edge.weight;
-      if (alt < distances.get(edge.to)) {
-        distances.set(edge.to, alt);
-        previous.set(edge.to, currentId);
-      }
-      edge.visited = true;
-      await delay(500);
-    }
-
-    unvisited.delete(currentId);
-    currentNode.current = false;
-    currentNode.visited = true;
-  }
-
-  // Highlight shortest path
-  let pathNode = endNode.value;
-  while (pathNode !== null) {
-    const prevNode = previous.get(pathNode);
-    if (prevNode === null) break;
-
-    const edge = edges.find(e => e.from === prevNode && e.to === pathNode);
-    if (edge) {
-      edge.inPath = true;
-      await delay(500);
-    }
-    pathNode = prevNode;
-  }
-}
-
-// Prim's Algorithm implementation
-async function prim() {
-  const visited = new Set();
-  visited.add(nodes[0].id);
-
-  // Reset all edges first
-  edges.forEach(edge => edge.inPath = false);
-
-  while (visited.size < nodes.length) {
-    // Find edges that cross the visited/unvisited boundary
-    const candidateEdges = edges.filter(edge => 
-      visited.has(edge.from) !== visited.has(edge.to) // Fixed missing parenthesis
-    );
-
-    if (candidateEdges.length === 0) break;
-
-    // Find minimum weight edge
-    const minEdge = candidateEdges.reduce((a, b) => 
-      a.weight < b.weight ? a : b
-    );
-
-    // Update original edge reference
-    const originalEdge = edges.find(e => 
-      e.from === minEdge.from && e.to === minEdge.to
-    );
-    
-    if (!originalEdge) continue;
-    
-    // Visual updates
-    originalEdge.inPath = true;
-    await delay(1000);
-
-    // Add the unvisited node to visited set
-    const newNodes = visited.has(originalEdge.from) 
-      ? [originalEdge.to] 
-      : [originalEdge.from];
-    newNodes.forEach(n => visited.add(n));
-  }
-}
-
-// Kruskal's Algorithm implementation
-async function kruskal() {
-  const parent = {};
-  nodes.forEach(node => parent[node.id] = node.id);
-
-  // Create a copy of edges sorted by weight
-  const edgesCopy = edges.map(edge => ({ ...edge })).sort((a, b) => a.weight - b.weight);
-
-  // Reset all edges first
-  edges.forEach(edge => edge.inPath = false);
-
-  function find(u) {
-    if (parent[u] !== u) {
-      parent[u] = find(parent[u]); // Path compression
-    }
-    return parent[u];
-  }
-
-  function union(u, v) {
-    const rootU = find(u);
-    const rootV = find(v);
-    if (rootU !== rootV) {
-      parent[rootU] = rootV;
-    }
-  }
-
-  for (const edge of edgesCopy) {
-    if (find(edge.from) !== find(edge.to)) {
-      // Update the original edge reference
-      const originalEdge = edges.find(e =>
-        e.from === edge.from && e.to === edge.to
-      );
-      originalEdge.inPath = true;
-      union(edge.from, edge.to);
-      await delay(1000);
-    }
-  }
-}
-
-function calculateEdgePath(edge) {
-  const fromNode = nodes.find(n => n.id === edge.from);
-  const toNode = nodes.find(n => n.id === edge.to);
-  return `M ${fromNode.x} ${fromNode.y} L ${toNode.x} ${toNode.y}`;
-}
-
-async function startAlgorithm() {
-  isRunning.value = true;
-  resetVisited();
-
-  switch(selectedAlgorithm.value) {
-    case 'BFS':
-      await bfs();
-      break;
-    case 'DFS':
-      await dfs();
-      break;
-    case 'In-Order':
-      await inOrderTraversal(0);
-      break;
-    case 'Pre-Order':
-      await preOrderTraversal(0);
-      break;
-    case 'Post-Order':
-      await postOrderTraversal(0);
-	  break;
-    case 'Dijkstra':
-      await dijkstra();
-      break;
-    case 'Prim':
-      await prim();
-      break;
-    case 'Kruskal':
-      await kruskal();
-      break;
-  }
-
-  isRunning.value = false;
-}
-
-// Traversal implementations
+// BFS Implementation (Graph) - Requires Start Node
 async function bfs() {
-  const queue = [];
-  queue.push(nodes[0]);
-  nodes[0].visited = true;
+  if (startNode.value === null) {
+    alert("Please select a start node for BFS.");
+    return false; // Indicate failure
+  }
+
+  const startNodeObj = nodes.find(n => n.id === startNode.value);
+  if (!startNodeObj) return false; // Should not happen
+
+  const queue = [startNodeObj];
+  startNodeObj.visited = true;
+  startNodeObj.current = true; // Mark start as current initially
+  await delay(delayTime.value);
+  startNodeObj.current = false;
+
+  const visitedEdges = new Set(); // Track visited edges to avoid double highlighting
 
   while (queue.length > 0) {
     const currentNode = queue.shift();
     currentNode.current = true;
-    await delay(1000);
+    await delay(delayTime.value);
 
-    for (const childId of currentNode.children) {
-      const child = nodes.find(n => n.id === childId);
-      if (!child.visited) {
-        child.visited = true;
-		const edge = edges.find(e => e.to === currentNode.id);
-		if (edge) edge.visited = true;
-        queue.push(child);
-        await delay(500);
-      }
+    // Find neighbors using the edges array
+    const neighborEdges = edges.filter(e => e.from === currentNode.id);
+
+    for (const edge of neighborEdges) {
+        const neighborNode = nodes.find(n => n.id === edge.to);
+
+        if (neighborNode && !neighborNode.visited) {
+            neighborNode.visited = true;
+            // Mark edge as visited (use a unique key for bidirectional)
+            const edgeKey = `${Math.min(edge.from, edge.to)}-${Math.max(edge.from, edge.to)}`;
+            if (!visitedEdges.has(edgeKey)) {
+                // Find both directions of the edge to mark visited
+                const edgePair = edges.filter(e => (e.from === edge.from && e.to === edge.to) || (e.from === edge.to && e.to === edge.from));
+                edgePair.forEach(ep => ep.visited = true);
+                visitedEdges.add(edgeKey);
+                await delay(delayTime.value / 2); // Shorter delay for edge highlight
+            }
+            queue.push(neighborNode);
+        }
     }
-
     currentNode.current = false;
   }
+  return true; // Indicate success
 }
 
+
+// DFS Implementation (Graph) - Requires Start Node
 async function dfs() {
-  const stack = [];
-  stack.push(nodes[0]);
-
-  while (stack.length > 0) {
-    const currentNode = stack.pop();
-    if (currentNode.visited) continue;
-
-    currentNode.visited = true;
-    currentNode.current = true;
-
-    // Fixed code:
-    const edge = edges.find(e => e.to === currentNode.id);
-    if (edge) edge.visited = true;
-
-    await delay(1000);
-
-    for (const childId of [...currentNode.children].reverse()) {
-      stack.push(nodes.find(n => n.id === childId));
+    if (startNode.value === null) {
+        alert("Please select a start node for DFS.");
+        return false; // Indicate failure
     }
 
-    currentNode.current = false;
+    const startNodeObj = nodes.find(n => n.id === startNode.value);
+    if (!startNodeObj) return false;
+
+    const stack = [startNodeObj]; // Use stack for DFS
+    const visitedOrder = []; // Keep track of visit order if needed
+    const visitedEdges = new Set(); // Track visited edges
+
+    while (stack.length > 0) {
+        const currentNode = stack.pop();
+
+        if (currentNode.visited) continue; // Skip if already visited via another path
+
+        currentNode.visited = true;
+        currentNode.current = true;
+        visitedOrder.push(currentNode.id);
+        await delay(delayTime.value);
+
+
+        // Find neighbors (consider reversing for typical stack-based DFS order)
+        const neighborEdges = edges.filter(e => e.from === currentNode.id); //.reverse();
+
+        for (const edge of neighborEdges) {
+            const neighborNode = nodes.find(n => n.id === edge.to);
+
+            if (neighborNode && !neighborNode.visited) {
+                // Mark edge as visited
+                 const edgeKey = `${Math.min(edge.from, edge.to)}-${Math.max(edge.from, edge.to)}`;
+                 if (!visitedEdges.has(edgeKey)) {
+                    const edgePair = edges.filter(e => (e.from === edge.from && e.to === edge.to) || (e.from === edge.to && e.to === edge.from));
+                    edgePair.forEach(ep => ep.visited = true);
+                    visitedEdges.add(edgeKey);
+                    await delay(delayTime.value / 2);
+                 }
+                stack.push(neighborNode); // Push unvisited neighbors onto stack
+            }
+        }
+        currentNode.current = false; // Move off current node after exploring neighbors
+    }
+    return true; // Indicate success
+}
+
+// Dijkstra's Algorithm implementation - Requires Start and End Nodes
+async function dijkstra() {
+  if (startNode.value === null || endNode.value === null) {
+    alert("Please select both start and end nodes for Dijkstra.");
+    return false;
   }
-}
-
-async function inOrderTraversal(nodeIndex) {
-  const node = nodes[nodeIndex];
-  if (!node) return;
-
-  const [left, right] = node.children;
-
-  if (left) await inOrderTraversal(nodes.findIndex(n => n.id === left));
-  node.current = true;
-  node.visited = true;
-  await delay(1000);
-  node.current = false;
-  if (right) await inOrderTraversal(nodes.findIndex(n => n.id === right));
-}
-
-async function preOrderTraversal(nodeIndex) {
-  const node = nodes[nodeIndex];
-  if (!node) return;
-
-  node.current = true;
-  node.visited = true;
-  await delay(1000);
-  node.current = false;
-
-  for (const childId of node.children) {
-    await preOrderTraversal(nodes.findIndex(n => n.id === childId));
-  }
-}
-
-async function postOrderTraversal(nodeIndex) {
-  const node = nodes[nodeIndex];
-  if (!node) return;
-
-  node.current = true;
-  await delay(500);
-
-  for (const childId of node.children) {
-    await postOrderTraversal(nodes.findIndex(n => n.id === childId));
+   if (startNode.value === endNode.value) {
+    alert("Start and end nodes cannot be the same.");
+    return false;
   }
 
-  node.visited = true;
-  await delay(1000);
-  node.current = false;
-}
+  const distances = new Map();
+  const previous = new Map();
+  const pq = new Map(); // Use Map as a simple Priority Queue {id: distance}
 
-function resetVisited() {
-  nodes.forEach(node => {
-    node.visited = false;
-    node.current = false;
+  nodes.forEach((node) => {
+    distances.set(node.id, Infinity);
+    previous.set(node.id, null);
+    pq.set(node.id, Infinity); // Initialize priority queue
   });
-  edges.forEach(edge => edge.visited = false);
+
+  distances.set(startNode.value, 0);
+  pq.set(startNode.value, 0); // Set start node distance
+
+  while (pq.size > 0) {
+    // Get node with the smallest distance from pq
+    let currentId = -1;
+    let minDistance = Infinity;
+    for (let [id, dist] of pq.entries()) {
+        if (dist < minDistance) {
+            minDistance = dist;
+            currentId = id;
+        }
+    }
+
+    // If no reachable nodes left or reached destination with finite distance
+    if (currentId === -1 || minDistance === Infinity) break;
+
+    pq.delete(currentId); // Remove current node from priority queue
+
+    const currentNode = nodes.find((n) => n.id === currentId);
+    if (!currentNode) continue; // Should not happen
+
+
+    // Visualization: Mark current node
+    currentNode.current = true;
+    await delay(delayTime.value);
+
+    // If we reached the end node, we can potentially stop early (optional)
+    // if (currentId === endNode.value) break;
+
+     currentNode.visited = true; // Mark visited after processing neighbors
+
+
+    // Process neighbors
+    const neighborEdges = edges.filter((e) => e.from === currentId);
+    for (const edge of neighborEdges) {
+      const neighborNode = nodes.find(n => n.id === edge.to);
+      if (!neighborNode) continue; // Skip if neighbor doesn't exist
+
+      // Mark edge as visited (considered)
+      edge.visited = true; // Highlight edge being considered
+      await delay(delayTime.value / 3);
+
+      const alt = distances.get(currentId) + edge.weight;
+
+      if (alt < distances.get(edge.to)) {
+        distances.set(edge.to, alt);
+        previous.set(edge.to, currentId);
+        if (pq.has(edge.to)) { // Update priority in pq if it's still there
+             pq.set(edge.to, alt);
+        }
+
+         // Visualization: Potentially show edge relaxation (e.g., different color temporarily)
+      }
+      // edge.visited = false; // Optional: Remove highlight after consideration if desired
+    }
+
+    currentNode.current = false; // Unmark current after processing neighbors
+  }
+
+  // Highlight the shortest path if found
+  if (distances.get(endNode.value) !== Infinity) {
+      let pathNodeId = endNode.value;
+      while (pathNodeId !== null && pathNodeId !== startNode.value) {
+          const prevNodeId = previous.get(pathNodeId);
+          if (prevNodeId === null) break; // Should not happen if path exists
+
+          // Find the specific edge used in the path
+          const pathEdge = edges.find((e) => e.from === prevNodeId && e.to === pathNodeId);
+           const pathEdgeReverse = edges.find((e) => e.from === pathNodeId && e.to === prevNodeId); // Find reverse too
+
+          if (pathEdge) pathEdge.inPath = true;
+          if (pathEdgeReverse) pathEdgeReverse.inPath = true; // Mark both directions inPath
+
+          // Highlight the node in path (optional, already marked visited)
+          // nodes.find(n => n.id === pathNodeId).inPath = true; // Need corresponding CSS class
+
+          await delay(delayTime.value / 2);
+          pathNodeId = prevNodeId;
+      }
+  } else {
+      alert("End node is not reachable from the start node.");
+  }
+
+   return true; // Indicate success or completion
 }
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+
+// --- Tree Traversal Stubs (Keep if needed, otherwise remove) ---
+async function inOrderTraversal(nodeId) {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  const children = node.children || [];
+  const leftChildId = children.length > 0 ? children[0] : null;
+  const rightChildId = children.length > 1 ? children[1] : null;
+
+  if (leftChildId !== null) await inOrderTraversal(leftChildId);
+
+  node.current = true;
+  node.visited = true;
+  await delay(delayTime.value);
+  node.current = false;
+
+  if (rightChildId !== null) await inOrderTraversal(rightChildId);
 }
 
-onMounted(calculateTreeLayout);
+async function preOrderTraversal(nodeId) {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  node.current = true;
+  node.visited = true;
+  await delay(delayTime.value);
+  node.current = false;
+
+  const children = node.children || [];
+  for (const childId of children) {
+    await preOrderTraversal(childId);
+  }
+}
+
+async function postOrderTraversal(nodeId) {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const children = node.children || [];
+  for (const childId of children) {
+    await postOrderTraversal(childId);
+  }
+
+  node.current = true;
+  node.visited = true;
+  await delay(delayTime.value);
+  node.current = false;
+}
+
+// --- Main Control ---
+
+async function startAlgorithm() {
+  if (isRunning.value) return; // Prevent multiple runs
+
+  clearVisualState(); // Clear previous highlights before starting
+  isRunning.value = true;
+  let success = false;
+
+  try {
+      switch (selectedAlgorithm.value) {
+          case "BFS":
+              success = await bfs();
+              break;
+          case "DFS":
+              success = await dfs();
+              break;
+          case "Dijkstra":
+              success = await dijkstra();
+              break;
+          case "In-Order":
+             if (nodes.length > 0) await inOrderTraversal(nodes[0].id);
+             success = true;
+              break;
+          case "Pre-Order":
+             if (nodes.length > 0) await preOrderTraversal(nodes[0].id);
+              success = true;
+              break;
+          case "Post-Order":
+              if (nodes.length > 0) await postOrderTraversal(nodes[0].id);
+              success = true;
+              break;
+          // Add calls for Prim/Kruskal if implemented
+          // case "Prim":
+          //     success = await prim(); // Assuming prim returns boolean
+          //     break;
+          // case "Kruskal":
+          //     success = await kruskal(); // Assuming kruskal returns boolean
+          //      break;
+      }
+  } catch (error) {
+      console.error("Algorithm execution failed:", error);
+      alert("An error occurred during the algorithm execution.");
+  } finally {
+      isRunning.value = false; // Ensure isRunning is set to false
+       // Optional: Display completion message based on 'success'
+  }
+}
+
+// --- SVG Helpers ---
+
+function calculateEdgePath(edge) {
+  const fromNode = nodes.find((n) => n.id === edge.from);
+  const toNode = nodes.find((n) => n.id === edge.to);
+  if (!fromNode || !toNode) return ""; // Handle cases where nodes might not be found yet
+  return `M ${fromNode.x} ${fromNode.y} L ${toNode.x} ${toNode.y}`;
+}
+
+// --- Lifecycle Hook ---
+onMounted(() => {
+  resetVisualization(); // Initialize based on the default selected algorithm
+});
 </script>
 
 <template>
   <div class="main-container">
-    <!-- Algorithm Panel -->
     <div class="algorithm-panel">
-      <h3>Tree Algorithms</h3>
-      <select v-model="selectedAlgorithm" class="algorithm-select">
-        <option>BFS</option>
-        <option>DFS</option>
-        <option>In-Order</option>
-        <option>Pre-Order</option>
-        <option>Post-Order</option>
-        <option>Dijkstra</option>
-        <option>Prim</option>
-        <option>Kruskal</option>
-      </select>
-      <div class="complexity-info">
-        <h4>Algorithm Info</h4>
-        <p>{{ algorithmInfo }}</p>
+      <h3>Algorithm Visualizer</h3>
+
+      <label for="algo-select">Select Algorithm:</label>
+      <select id="algo-select" v-model="selectedAlgorithm" class="algorithm-select" :disabled="isRunning">
+        <optgroup label="Graph Traversal">
+          <option>BFS</option>
+          <option>DFS</option>
+        </optgroup>
+        <optgroup label="Shortest Path">
+          <option>Dijkstra</option>
+        </optgroup>
+         <optgroup label="Tree Traversal">
+          <option>In-Order</option>
+          <option>Pre-Order</option>
+          <option>Post-Order</option>
+        </optgroup>
+         </select>
+
+      <div v-if="isGraphAlgorithm" class="config-section graph-config">
+        <h4>Graph Options</h4>
+        <label>
+          Node Count:
+          <input
+            v-model.number="graphConfig.nodeCount"
+            type="number" min="3" max="30" :disabled="isRunning"
+          />
+        </label>
+        <label>
+          Edge Probability:
+          <input
+            v-model.number="graphConfig.edgeProbability"
+            type="number" min="0.1" max="1" step="0.1" :disabled="isRunning"
+          />
+        </label>
+      </div>
+      <div v-else class="config-section tree-config">
+         <h4>Tree Options</h4>
+        <label>
+          Tree Depth:
+          <input v-model.number="treeDepth" type="number" min="2" max="5" :disabled="isRunning" />
+        </label>
       </div>
 
-      <div v-if="selectedAlgorithm === 'Dijkstra'" class="node-selection">
-        <button @click="selectStartNode">Set Start Node</button>
-        <button @click="selectEndNode">Set End Node</button>
-        <div v-if="startNode !== null">Start: Node {{ startNode }}</div>
-        <div v-if="endNode !== null">End: Node {{ endNode }}</div>
+       <div v-if="needsStartNode || needsEndNode" class="config-section node-selection">
+          <h4>Node Selection</h4>
+          <button v-if="needsStartNode" @click="selectStartNode" :disabled="isRunning || selectingStart" :class="{selecting: selectingStart}">
+            {{ startNode !== null ? `Start: ${startNode}` : 'Select Start Node' }} {{ selectingStart ? '...' : '' }}
+          </button>
+           <button v-if="needsEndNode" @click="selectEndNode" :disabled="isRunning || selectingEnd" :class="{selecting: selectingEnd}">
+             {{ endNode !== null ? `End: ${endNode}` : 'Select End Node' }} {{ selectingEnd ? '...' : '' }}
+           </button>
+           <p v-if="selectingStart || selectingEnd" class="selection-hint">Click on a node in the visualization.</p>
       </div>
+
+      <div class="config-section speed-control">
+        <h4>Speed</h4>
+         <label>
+             Delay (ms):
+             <input type="range" v-model.number="delayTime" min="50" max="2000" step="50" :disabled="isRunning">
+             <span>{{ delayTime }}ms</span>
+         </label>
+      </div>
+
+      <div class="main-controls">
+         <button @click="startAlgorithm" :disabled="isRunning || (needsStartNode && startNode === null) || (needsEndNode && endNode === null)">
+            {{ isRunning ? 'Running...' : 'Start' }}
+         </button>
+         <button @click="resetVisualization" :disabled="isRunning">Reset</button>
+      </div>
+
     </div>
 
-    <!-- Main Visualization -->
     <div class="visualization-container">
-      <div class="controls">
-        <button @click="startAlgorithm" :disabled="isRunning">Start</button>
-        <button @click="resetTree" :disabled="isRunning">Reset</button>
-        <label
-          >Tree Depth:
-          <input v-model.number="treeDepth" type="number" min="2" max="5"
-        /></label>
-      </div>
-
       <svg
         :width="containerWidth"
         :height="containerHeight"
-        class="tree-container"
+        class="visualization-svg"
       >
-        <!-- Edges -->
-        <path
-          v-for="(edge, index) in edges"
-          :key="index"
-          :d="calculateEdgePath(edge)"
-          class="edge"
-          :class="{ visited: edge.visited, 'in-path': edge.inPath }"
-        />
+        <g class="edges">
+           <path
+             v-for="(edge, index) in edges"
+             :key="'edge-' + index"
+             :d="calculateEdgePath(edge)"
+             class="edge"
+             :class="{ visited: edge.visited, 'in-path': edge.inPath }"
+           />
+        </g>
 
-        <!-- Nodes -->
-        <circle
-          v-for="node in nodes"
-          :key="node.id"
-          :cx="node.x"
-          :cy="node.y"
-          r="20"
-          class="node"
-          :class="{
-            visited: node.visited,
-            current: node.current,
-            start: node.id === startNode,
-            end: node.id === endNode,
-          }"
-          @click="handleNodeClick(node)"
-        >
-          <title>{{ node.value }}</title>
-        </circle>
+<g class="edge-weights">
+    <text
+      v-for="(edge, index) in edges.filter((e, i) => i % 2 === 0)"
+      :key="'weight-' + index"
+      :x="(nodes.find(n => n.id === edge.from).x + nodes.find(n => n.id === edge.to).x) / 2"
+      :y="(nodes.find(n => n.id === edge.from).y + nodes.find(n => n.id === edge.to).y) / 2"
+      class="edge-weight">
+      {{ edge.weight }}
+    </text>
+</g>
 
-        <!-- Node Labels -->
-        <text
-          v-for="node in nodes"
-          :key="'text-' + node.id"
-          :x="node.x"
-          :y="node.y"
-          class="node-label"
-          text-anchor="middle"
-          dy=".3em"
-        >
-          {{ node.value }}
-        </text>
+        <g class="nodes">
+          <circle
+            v-for="node in nodes"
+            :key="'node-' + node.id"
+            :cx="node.x"
+            :cy="node.y"
+            r="18" class="node"
+            :class="{
+              visited: node.visited,
+              current: node.current,
+              start: node.id === startNode,
+              end: node.id === endNode,
+            }"
+            @click="handleNodeClick(node)"
+          >
+            <title>{{ `Node ID: ${node.id}\nValue: ${node.value}` }}</title> </circle>
+        </g>
 
-        <!-- Edge Weights -->
-        <text
-          v-for="edge in edges"
-          :key="'weight-' + edge.from + '-' + edge.to"
-          :x="
-            (nodes.find((n) => n.id === edge.from).x +
-              nodes.find((n) => n.id === edge.to).x) /
-            2
-          "
-          :y="
-            (nodes.find((n) => n.id === edge.from).y +
-              nodes.find((n) => n.id === edge.to).y) /
-            2
-          "
-          class="edge-weight"
-        >
-          {{ edge.weight }}
-        </text>
+        <g class="node-labels">
+           <text
+             v-for="node in nodes"
+             :key="'text-' + node.id"
+             :x="node.x"
+             :y="node.y"
+             class="node-label"
+             text-anchor="middle"
+             dy=".3em"
+           >
+             {{ node.id }} </text>
+         </g>
       </svg>
     </div>
   </div>
 </template>
 
-
 <style>
+:root {
+  --color-background: #f8f9fa;
+  --color-panel: #e9ecef;
+  --color-border: #dee2e6;
+  --color-text: #212529;
+  --color-primary: #007bff;
+  --color-secondary: #6c757d;
+  --color-node: #0d6efd; /* Bootstrap blue */
+  --color-node-stroke: #0a58ca;
+  --color-node-visited: #ffca2c; /* Yellowish */
+  --color-node-current: #dc3545; /* Red */
+  --color-node-start: #198754; /* Green */
+  --color-node-end: #fd7e14; /* Orange */
+  --color-edge: #6c757d; /* Gray */
+  --color-edge-visited: #adb5bd;
+  --color-edge-path: #198754; /* Green */
+  --color-label: white;
+  --color-weight: #495057;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
 .main-container {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 280px 1fr; /* Fixed panel width */
   height: 100vh;
+  overflow: hidden; /* Prevent body scroll */
 }
 
 .algorithm-panel {
-  padding: 20px;
-  background: #f5f6fa;
-  border-right: 2px solid #dcdde1;
+  padding: 15px;
+  background: var(--color-panel);
+  border-right: 1px solid var(--color-border);
   height: 100vh;
-  overflow-y: auto;
+  overflow-y: auto; /* Allow scrolling within panel */
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* Spacing between sections */
 }
+
+.algorithm-panel h3, .algorithm-panel h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 5px;
+}
+.algorithm-panel h4 {
+    margin-bottom: 8px;
+    font-size: 1em;
+}
+
+.config-section label,
+.config-section .main-controls,
+.node-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Spacing within sections */
+}
+.config-section label input[type="number"],
+.config-section label input[type="range"],
+.algorithm-select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-sizing: border-box; /* Include padding in width */
+}
+.config-section label input[type="range"] {
+    padding: 0;
+}
+
+
+.algorithm-select {
+    margin-bottom: 10px;
+}
+
+button {
+    padding: 8px 12px;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+    background-color: var(--color-node-stroke);
+}
+
+button:disabled {
+    background-color: var(--color-secondary);
+    cursor: not-allowed;
+}
+
+button.selecting {
+    background-color: var(--color-node-current);
+}
+
+.selection-hint {
+    font-size: 0.8em;
+    color: var(--color-secondary);
+    text-align: center;
+    margin-top: 5px;
+}
+
 
 .visualization-container {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
   padding: 20px;
+  overflow: hidden; /* Prevent container overflow */
+  background-color: white;
 }
 
-.controls {
-  margin-bottom: 20px;
+.visualization-svg {
+  border: 1px solid var(--color-border);
+  /* background: white; */ /* Moved to container */
+  max-width: 100%;
+  max-height: 100%;
 }
 
-.tree-container {
-  border: 1px solid #dcdde1;
-  background: white;
-}
-
+/* SVG Elements */
 .node {
-  fill: #487eb0;
-  stroke: #2c3e50;
-  stroke-width: 2;
-  transition: fill 0.3s;
+  fill: var(--color-node);
+  stroke: var(--color-node-stroke);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill 0.3s ease, stroke 0.3s ease;
+}
+.node:hover {
+    stroke-width: 3;
 }
 
-.node.visited {
-  fill: #e1b12c;
-}
-
-.node.current {
-  fill: #c23616;
-}
+.node.visited { fill: var(--color-node-visited); }
+.node.current { fill: var(--color-node-current); stroke: #a02a1a; stroke-width: 2.5; }
+.node.start { fill: var(--color-node-start) !important; } /* Use !important to override other states */
+.node.end { fill: var(--color-node-end) !important; }
 
 .edge {
-  stroke: #718093;
+  stroke: var(--color-edge);
   stroke-width: 2;
   fill: none;
+  transition: stroke 0.3s ease, stroke-width 0.3s ease;
 }
 
-.edge.visited {
-  stroke: #e1b12c;
-  stroke-width: 3;
-}
+.edge.visited { stroke: var(--color-edge-visited); stroke-width: 2.5; }
+.edge.in-path { stroke: var(--color-edge-path); stroke-width: 4; }
 
 .node-label {
-  fill: white;
+  fill: var(--color-label);
+  font-size: 10px;
   font-weight: bold;
-  pointer-events: none;
-}
-
-.complexity-info {
-  margin-top: 20px;
-  padding: 15px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.algorithm-select {
-  width: 100%;
-  padding: 8px;
-  margin: 10px 0;
-}
-
-.node.start {
-  fill: #4cd137 !important;
-}
-
-.node.end {
-  fill: #e84118 !important;
-}
-
-.edge.in-path {
-  stroke: #4cd137;
-  stroke-width: 4;
+  pointer-events: none; /* Prevent labels from interfering with clicks */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Improve readability */
 }
 
 .edge-weight {
-  fill: #2c3e50;
-  font-size: 12px;
-  font-weight: bold;
+  fill: var(--color-weight);
+  font-size: 10px;
+  font-weight: normal;
   pointer-events: none;
+  text-anchor: middle;
 }
 
-.node-selection {
-  margin: 15px 0;
-  padding: 10px;
-  background: #ffffff;
-  border-radius: 8px;
+.speed-control label {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
 }
+.speed-control input[type="range"] {
+    flex-grow: 1;
+}
+.speed-control span {
+    min-width: 40px; /* Ensure space for text */
+    text-align: right;
+}
+
 </style>
