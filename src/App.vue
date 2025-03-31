@@ -7,9 +7,9 @@ import { ref, onMounted } from "vue";
 const selectedComponent = ref(null);
 
 onMounted(() => {
-  const gifContainers = document.querySelectorAll(".gif-container");
-  gifContainers.forEach((container) => {
-    const gif = container.querySelector("img");
+  const flexItems = document.querySelectorAll(".flex-item");
+  flexItems.forEach((flexItem) => {
+    const gif = flexItem.querySelector("img");
     const originalGifSrc = gif.src;
     let placeholderSrc = "";
 
@@ -21,17 +21,17 @@ onMounted(() => {
       placeholderSrc = new URL("./assets/img/graph.png", import.meta.url).href;
     }
 
-    gif.src = placeholderSrc; // Set placeholder image initially
-    gif.style.filter = "grayscale(100%)"; // Initial grayscale
+    gif.src = placeholderSrc;
+    gif.style.filter = "grayscale(100%)";
 
-    container.addEventListener("mouseenter", () => {
-      gif.src = originalGifSrc; // Load GIF on hover
-      gif.style.filter = "none"; // Remove grayscale
+    flexItem.addEventListener("mouseenter", () => {
+      gif.src = originalGifSrc;
+      gif.style.filter = "none";
     });
 
-    container.addEventListener("mouseleave", () => {
-      gif.src = placeholderSrc; // Load PNG on mouse leave
-      gif.style.filter = "grayscale(100%)"; // Apply grayscale
+    flexItem.addEventListener("mouseleave", () => {
+      gif.src = placeholderSrc;
+      gif.style.filter = "grayscale(100%)";
     });
   });
 });
@@ -96,9 +96,10 @@ main {
 }
 
 .flex-item {
+	flex: 1 1 0%;
   display: flex;
   flex-grow: 1;
-  transition: flex-grow 0.3s ease;
+  transition: flex 0.3s ease;
   padding: 20px;
   text-align: center;
   background-color: #f0f0f0;
@@ -110,7 +111,8 @@ main {
 }
 
 .flex-item:hover {
-  flex-grow: 3;
+  flex: 3 1 0%;
+    background-color: #ddd; /* Change background color on hover */
 }
 
 .flex-item.active {
