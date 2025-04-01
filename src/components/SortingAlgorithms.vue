@@ -2,7 +2,7 @@
   <div class="sorting-visualizer">
     <!-- Algorithm selection -->
     <div class="controls">
-      <label for="algorithm">Select sorting algorithm:</label>
+		<label for="algorithm"><b>Select A Sorting Algorithm:</b></label>
       <select id="algorithm" v-model="selectedAlgorithm">
         <option value="bubbleSort">Bubble Sort</option>
         <option value="selectionSort">Selection Sort</option>
@@ -11,7 +11,7 @@
         <option value="quickSort">Quick Sort</option>
       </select>
 
-      <button @click="resetArray">Generate New Array</button>
+      <button @click="resetArray">Generate New Columns</button>
       <button @click="startSorting" :disabled="isSorting">Sort</button>
       <button @click="stopSorting" :disabled="!isSorting">Stop</button>
     </div>

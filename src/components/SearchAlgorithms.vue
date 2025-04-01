@@ -14,7 +14,7 @@ const selectedAlgorithm = ref("Linear Search");
 // Generate initial array
 const generateNewArray = () => {
   array.splice(0);
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 22; i++) {
     const num = Math.floor(Math.random() * 100) + 1;
     if (!array.includes(num)) array.push(num);
     else --i;
@@ -340,5 +340,11 @@ button:disabled {
 input[type="number"] {
   padding: 8px;
   width: 150px;
+}
+
+select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
 }
 </style>
